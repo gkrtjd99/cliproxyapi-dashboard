@@ -33,10 +33,11 @@ COMPOSE_FILE="${SCRIPT_DIR}/docker-compose.local.yml"
 ENV_FILE="${SCRIPT_DIR}/.env"
 
 show_usage() {
-    echo "Usage: ./setup-local.sh [--down] [--reset]"
+    echo "Usage: ./setup-local.sh [--down] [--reset] [--prepare-only]"
 }
 
 ACTION="up"
+PREPARE_ONLY=0
 for arg in "$@"; do
     case "$arg" in
         --down)
@@ -44,6 +45,9 @@ for arg in "$@"; do
             ;;
         --reset)
             ACTION="reset"
+            ;;
+        --prepare-only)
+            PREPARE_ONLY=1
             ;;
         -h|--help)
             show_usage
@@ -133,16 +137,23 @@ generate_env_file() {
         esac
     done
 
-    local jwt_secret management_api_key postgres_password
+    local jwt_secret management_api_key postgres_password collector_api_key backup_scheduler_key
     jwt_secret="$(openssl rand -base64 32)"
     management_api_key="$(openssl rand -hex 32)"
     postgres_password="$(openssl rand -hex 32)"
+    collector_api_key="$(openssl rand -hex 32)"
+    backup_scheduler_key="$(openssl rand -hex 32)"
 
     umask 077
     cat > "$ENV_FILE" <<EOF
+# Pinned to the API release used by the copied local stack.
+CLIPROXYAPI_VERSION=7.2.138
+TZ=Asia/Seoul
 JWT_SECRET=${jwt_secret}
 MANAGEMENT_API_KEY=${management_api_key}
 POSTGRES_PASSWORD=${postgres_password}
+COLLECTOR_API_KEY=${collector_api_key}
+BACKUP_SCHEDULER_KEY=${backup_scheduler_key}
 EOF
 
     if [ "$enable_perplexity" -eq 1 ]; then
@@ -204,6 +215,8 @@ wait_for_health() {
         "cliproxyapi"
         "cliproxyapi-docker-proxy"
         "cliproxyapi-dashboard"
+        "cliproxyapi-usage-collector"
+        "cliproxyapi-backup-scheduler"
     )
 
     while true; do
@@ -262,6 +275,11 @@ main() {
 
     generate_env_file
     generate_config_yaml
+
+    if [ "$PREPARE_ONLY" -eq 1 ]; then
+        log_success "Prepared local environment and proxy config."
+        exit 0
+    fi
 
     log_info "Starting local stack (with local dashboard build)..."
     docker compose -f "$COMPOSE_FILE" up -d --build

@@ -138,6 +138,19 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  if (process.env.LOCAL_STACK_MANAGED === "true") {
+    const current = await getCurrentImageDigest();
+    return NextResponse.json({
+      currentVersion: current.version,
+      currentDigest: current.digest,
+      latestVersion: current.version,
+      latestDigest: current.digest,
+      updateAvailable: false,
+      buildInProgress: false,
+      availableVersions: [],
+    });
+  }
+
   // Check if refresh=true query param is present to skip cache
   const skipCache = request.nextUrl.searchParams.get("refresh") === "true";
 

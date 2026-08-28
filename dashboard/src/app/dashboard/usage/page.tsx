@@ -16,6 +16,8 @@ const CostEstimation = dynamic(
 import { UsageRequestEvents } from "@/components/usage/usage-request-events";
 import { UsageTable } from "@/components/usage/usage-table";
 import { API_ENDPOINTS } from "@/lib/api-endpoints";
+import { getUsageDateRange, type DateFilter } from "@/lib/usage/date-range";
+import { getCacheRate, getUncachedInputTokens } from "@/lib/usage/token-metrics";
 
 import { useTranslations } from "next-intl";
 interface KeyUsage {
@@ -35,6 +37,7 @@ interface KeyUsage {
     totalTokens: number;
     inputTokens: number;
     outputTokens: number;
+    cachedTokens: number;
   }>;
 }
 
@@ -45,6 +48,7 @@ interface UsageData {
     totalTokens: number;
     inputTokens: number;
     outputTokens: number;
+    cachedTokens: number;
     successCount: number;
     failureCount: number;
   };
@@ -56,6 +60,7 @@ interface UsageData {
     tokens: number;
     inputTokens: number;
     outputTokens: number;
+    cachedTokens: number;
     success: number;
     failure: number;
   }>;
@@ -63,6 +68,7 @@ interface UsageData {
     model: string;
     requests: number;
     tokens: number;
+    cachedTokens: number;
   }>;
   latencySeries?: Array<{
     timestamp: string;
@@ -87,6 +93,7 @@ interface UsageData {
     totalTokens: number;
     inputTokens: number;
     outputTokens: number;
+    cachedTokens: number;
     failed: boolean;
   }>;
   truncated?: boolean;
@@ -106,37 +113,9 @@ interface CollectionStatus {
   consecutiveFailures: number;
 }
 
-type DateFilter = "today" | "7d" | "30d" | "all" | "custom";
-
 function shouldPollDashboard(): boolean {
   if (typeof document === "undefined") return true;
   return document.visibilityState === "visible";
-}
-
-function toLocalDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function getDateRange(period: DateFilter, customFrom?: string, customTo?: string): { from: string; to: string } {
-  const now = new Date();
-  const to = toLocalDateString(now);
-  switch (period) {
-    case "today": return { from: to, to };
-    case "7d": {
-      const d = new Date(now); d.setDate(d.getDate() - 7);
-      return { from: toLocalDateString(d), to };
-    }
-    case "30d": {
-      const d = new Date(now); d.setDate(d.getDate() - 30);
-      return { from: toLocalDateString(d), to };
-    }
-    case "all": return { from: "2020-01-01", to: "2099-12-31" };
-    case "custom": return { from: customFrom || to, to: customTo || to };
-    default: return { from: "2020-01-01", to: "2099-12-31" };
-  }
 }
 
 function formatLatencyValue(value: number): string {
@@ -183,7 +162,7 @@ export default function UsagePage() {
       }
 
       try {
-        const { from, to } = getDateRange(activeFilter, customFrom, customTo);
+        const { from, to } = getUsageDateRange(activeFilter, customFrom, customTo);
         
         // Fetch both usage data and collection status in parallel
         const [usageRes] = await Promise.all([
@@ -282,7 +261,7 @@ export default function UsagePage() {
         }
       }
 
-      const { from, to } = getDateRange(activeFilter, customFrom, customTo);
+      const { from, to } = getUsageDateRange(activeFilter, customFrom, customTo);
       const res = await fetch(`/api/usage/history?from=${from}&to=${to}`);
 
       if (!res.ok) {
@@ -333,7 +312,15 @@ export default function UsagePage() {
     return t("collectedDaysAgo", { count: Math.floor(hours / 24) });
   }
 
-  const hasInputOutputBreakdown = usageData && (usageData.totals.inputTokens > 0 || usageData.totals.outputTokens > 0);
+  const totalInputTokens = usageData?.totals.inputTokens ?? 0;
+  const cachedInputTokens = usageData?.totals.cachedTokens ?? 0;
+  const uncachedInputTokens = getUncachedInputTokens(totalInputTokens, cachedInputTokens);
+  const cacheRate = getCacheRate(totalInputTokens, cachedInputTokens);
+  const hasInputOutputBreakdown = usageData && (
+    totalInputTokens > 0
+    || usageData.totals.outputTokens > 0
+    || cachedInputTokens > 0
+  );
   const hasLatencyBreakdown = (usageData?.latencySummary?.sampleCount ?? 0) > 0;
 
   return (
@@ -414,15 +401,23 @@ export default function UsagePage() {
             <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2">
               <div className="rounded-lg border border-[var(--surface-border)] bg-[var(--surface-base)] px-2.5 py-2">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t('inputTokens')}</p>
-                <p className="mt-0.5 text-xs font-semibold text-[var(--text-primary)]">{usageData.totals.inputTokens.toLocaleString()}</p>
+                <p className="mt-0.5 text-xs font-semibold text-[var(--text-primary)]">{totalInputTokens.toLocaleString()}</p>
+              </div>
+              <div className="rounded-lg border border-[var(--surface-border)] bg-[var(--surface-base)] px-2.5 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t('cachedInput')}</p>
+                <p className="mt-0.5 text-xs font-semibold text-[var(--text-primary)]">{cachedInputTokens.toLocaleString()}</p>
+              </div>
+              <div className="rounded-lg border border-[var(--surface-border)] bg-[var(--surface-base)] px-2.5 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t('uncachedInput')}</p>
+                <p className="mt-0.5 text-xs font-semibold text-[var(--text-primary)]">{uncachedInputTokens.toLocaleString()}</p>
               </div>
               <div className="rounded-lg border border-[var(--surface-border)] bg-[var(--surface-base)] px-2.5 py-2">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t('outputTokens')}</p>
                 <p className="mt-0.5 text-xs font-semibold text-[var(--text-primary)]">{usageData.totals.outputTokens.toLocaleString()}</p>
               </div>
               <div className="rounded-lg border border-[var(--surface-border)] bg-[var(--surface-base)] px-2.5 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t('totalTokens')}</p>
-                <p className="mt-0.5 text-xs font-semibold text-[var(--text-primary)]">{usageData.totals.totalTokens.toLocaleString()}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t('cacheRate')}</p>
+                <p className="mt-0.5 text-xs font-semibold text-[var(--text-primary)]">{(cacheRate * 100).toFixed(1)}%</p>
               </div>
             </div>
           )}

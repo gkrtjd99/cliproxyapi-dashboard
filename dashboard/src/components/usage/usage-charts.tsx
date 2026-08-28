@@ -4,6 +4,7 @@ import { useId } from "react";
 import { useTranslations } from "next-intl";
 import { LineChart, Line, AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
 import { ChartContainer, CHART_COLORS, SERIES_PALETTE, useChartTheme, formatCompact, formatDateShort } from "@/components/ui/chart-theme";
+import { getUncachedInputTokens } from "@/lib/usage/token-metrics";
 
 interface DailyBreakdown {
   date: string;
@@ -11,6 +12,7 @@ interface DailyBreakdown {
   tokens: number;
   inputTokens: number;
   outputTokens: number;
+  cachedTokens: number;
   success: number;
   failure: number;
 }
@@ -19,6 +21,7 @@ interface ModelBreakdown {
   model: string;
   requests: number;
   tokens: number;
+  cachedTokens: number;
 }
 
 interface Totals {
@@ -26,6 +29,7 @@ interface Totals {
   totalTokens: number;
   inputTokens: number;
   outputTokens: number;
+  cachedTokens: number;
   successCount: number;
   failureCount: number;
 }
@@ -79,9 +83,15 @@ export function UsageCharts({ dailyBreakdown, modelBreakdown, latencySeries, lat
    const t = useTranslations('usage');
    const uid = useId();
    const { axisTickStyle, tooltipStyle, tokens } = useChartTheme();
-   const gradInputId = `${uid}-gradInput`;
+   const gradUncachedInputId = `${uid}-gradUncachedInput`;
+   const gradCachedInputId = `${uid}-gradCachedInput`;
    const gradOutputId = `${uid}-gradOutput`;
    const gradLatencyId = `${uid}-gradLatency`;
+   const tokenBreakdown = dailyBreakdown?.map((daily) => ({
+     ...daily,
+     cachedInputTokens: daily.cachedTokens,
+     uncachedInputTokens: getUncachedInputTokens(daily.inputTokens, daily.cachedTokens),
+   }));
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       {dailyBreakdown && dailyBreakdown.length > 0 ? (
@@ -102,33 +112,70 @@ export function UsageCharts({ dailyBreakdown, modelBreakdown, latencySeries, lat
         </ChartContainer>
       ) : null}
 
-      {dailyBreakdown && dailyBreakdown.length > 0 ? (
+      {tokenBreakdown && tokenBreakdown.length > 0 ? (
         <ChartContainer title={t('tokenUsage')}>
           <ResponsiveContainer width="100%" height={220} minWidth={0} minHeight={0} initialDimension={{ width: 320, height: 200 }}>
-            <AreaChart data={dailyBreakdown} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+            <AreaChart data={tokenBreakdown} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
               <defs>
-                <linearGradient id={gradInputId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={CHART_COLORS.primary} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={CHART_COLORS.primary} stopOpacity={0} />
+                <linearGradient id={gradUncachedInputId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={CHART_COLORS.primary} stopOpacity={0.12} />
+                  <stop offset="100%" stopColor={CHART_COLORS.primary} stopOpacity={0.01} />
+                </linearGradient>
+                <linearGradient id={gradCachedInputId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={CHART_COLORS.rose} stopOpacity={0.12} />
+                  <stop offset="100%" stopColor={CHART_COLORS.rose} stopOpacity={0.01} />
                 </linearGradient>
                 <linearGradient id={gradOutputId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={CHART_COLORS.success} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={CHART_COLORS.success} stopOpacity={0} />
+                  <stop offset="0%" stopColor={CHART_COLORS.violet} stopOpacity={0.12} />
+                  <stop offset="100%" stopColor={CHART_COLORS.violet} stopOpacity={0.01} />
                 </linearGradient>
               </defs>
-               <CartesianGrid strokeDasharray="3 3" stroke={tokens.grid} />
+               <CartesianGrid stroke={tokens.grid} />
                <XAxis dataKey="date" tickFormatter={formatDateShort} tick={axisTickStyle} tickLine={false} axisLine={false} />
                <YAxis tickFormatter={formatCompact} tick={axisTickStyle} tickLine={false} axisLine={false} />
                <Tooltip
                  {...tooltipStyle}
                  labelFormatter={(label) => formatDateShort(label)}
-                 formatter={(value) => [formatCompact(Number(value)), ""]}
+                 formatter={(value, name) => [formatCompact(Number(value)), name]}
                />
-              <Legend wrapperStyle={{ fontSize: 10, color: tokens.text.muted }} />
-              <Area type="monotone" dataKey="inputTokens" name={t('input')} stackId="1" stroke={CHART_COLORS.primary} fill={`url(#${gradInputId})`} strokeWidth={1.5} />
-              <Area type="monotone" dataKey="outputTokens" name={t('output')} stackId="1" stroke={CHART_COLORS.success} fill={`url(#${gradOutputId})`} strokeWidth={1.5} />
+              <Legend
+                wrapperStyle={{ fontSize: 10, color: tokens.text.muted }}
+                formatter={(value) => <span style={{ color: tokens.text.muted }}>{value}</span>}
+              />
+              <Area type="monotone" dataKey="uncachedInputTokens" name={t('uncachedInput')} stackId="tokens" stroke={CHART_COLORS.primary} fill={`url(#${gradUncachedInputId})`} strokeWidth={2} />
+              <Area type="monotone" dataKey="cachedInputTokens" name={t('cachedInput')} stackId="tokens" stroke={CHART_COLORS.rose} fill={`url(#${gradCachedInputId})`} strokeWidth={2} />
+              <Area type="monotone" dataKey="outputTokens" name={t('output')} stackId="tokens" stroke={CHART_COLORS.violet} fill={`url(#${gradOutputId})`} strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
+          <details className="mt-3 border-t border-[var(--surface-border)] pt-3">
+            <summary className="cursor-pointer text-[11px] font-semibold text-[var(--text-muted)]">
+              {t('chartDataTable')}
+            </summary>
+            <div className="mt-2 overflow-x-auto">
+              <table className="w-full min-w-[560px] text-xs">
+                <thead>
+                  <tr className="border-b border-[var(--surface-border)] text-[10px] uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                    <th scope="col" className="px-2 py-1.5 text-left">{t('time')}</th>
+                    <th scope="col" className="px-2 py-1.5 text-right">{t('uncachedInput')}</th>
+                    <th scope="col" className="px-2 py-1.5 text-right">{t('cachedInput')}</th>
+                    <th scope="col" className="px-2 py-1.5 text-right">{t('output')}</th>
+                    <th scope="col" className="px-2 py-1.5 text-right">{t('inputTokens')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tokenBreakdown.map((daily) => (
+                    <tr key={daily.date} className="border-b border-[var(--surface-border)]/40 last:border-0">
+                      <td className="px-2 py-1.5 text-[var(--text-secondary)]">{formatDateShort(daily.date)}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums text-[var(--text-muted)]">{daily.uncachedInputTokens.toLocaleString()}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums text-[var(--text-muted)]">{daily.cachedInputTokens.toLocaleString()}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums text-[var(--text-muted)]">{daily.outputTokens.toLocaleString()}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums text-[var(--text-primary)]">{daily.inputTokens.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
         </ChartContainer>
       ) : null}
 

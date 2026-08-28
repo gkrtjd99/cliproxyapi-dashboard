@@ -1,0 +1,18 @@
+# Local CLIProxyAPI configuration template.
+# Do not put provider API keys or OAuth credentials in this file.
+# Run ./setup-local.sh to generate config.local.yaml with a fresh management key.
+
+host: ""
+port: 8317
+auth-dir: "/root/.cli-proxy-api"
+remote-management:
+  # The dashboard reaches the proxy over the private Docker backend network.
+  allow-remote: true
+  secret-key: "REPLACE_WITH_MANAGEMENT_API_KEY"
+api-keys: []
+request-retry: 3
+quota-exceeded:
+  switch-project: true
+  switch-preview-model: true
+routing:
+  strategy: "round-robin"

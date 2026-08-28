@@ -297,7 +297,8 @@ export async function listOAuthWithOwnership(
     }>;
 
     const quotaGroupsByAuthId = new Map<string, OAuthAccountQuotaGroupState[]>();
-    try {
+    if (process.env.CLIPROXYAPI_SUPPORTS_QUOTA_GROUPS === "true") {
+      try {
       const quotaGroupsEndpoint = `${MANAGEMENT_BASE_URL}/auth-files/quota-groups`;
       const quotaGroupsRes = await fetchWithTimeout(quotaGroupsEndpoint, {
         method: "GET",
@@ -334,8 +335,9 @@ export async function listOAuthWithOwnership(
       } else {
         await quotaGroupsRes.body?.cancel();
       }
-    } catch (error) {
-      logger.warn({ err: error }, "listOAuthWithOwnership: failed to fetch quota groups");
+      } catch (error) {
+        logger.warn({ err: error }, "listOAuthWithOwnership: failed to fetch quota groups");
+      }
     }
 
     // Build ownership lookup rows using canonical provider identifiers. Every

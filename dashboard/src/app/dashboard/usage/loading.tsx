@@ -44,6 +44,16 @@ export default function UsageLoading() {
         ))}
       </div>
 
+      {/* Token detail cards */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2">
+        {Array.from({ length: 5 }).map((_, idx) => (
+          <div key={`token-stat-${idx}`} className="rounded-lg border border-[var(--surface-border)] bg-[var(--surface-base)] px-2.5 py-2">
+            <div className="h-2.5 w-24 animate-pulse rounded bg-[var(--surface-muted)]" />
+            <div className="mt-1.5 h-4 w-16 animate-pulse rounded bg-[var(--surface-muted)]" />
+          </div>
+        ))}
+      </div>
+
       {/* Charts 2x2 */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {Array.from({ length: 4 }).map((_, idx) => (

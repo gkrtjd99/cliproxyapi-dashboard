@@ -24,15 +24,23 @@ services:
       retries: 5
       start_period: 10s
 
-  # Requires ./config.local.yaml mounted below with `port: 8317` for management/OAuth
+  # CLIProxyAPI is built from the exact Homebrew-compatible release pinned in
+  # CLIPROXYAPI_VERSION. The host ports preserve the existing local endpoints.
   cliproxyapi:
-    image: eceasy/cli-proxy-api:latest
+    build:
+      context: ./cliproxyapi
+      args:
+        CLI_PROXY_VERSION: ${CLIPROXYAPI_VERSION:-7.2.138}
+        VERSION: ${CLIPROXYAPI_VERSION:-7.2.138}
+        TZ: ${TZ:-Asia/Seoul}
+    image: local/cliproxyapi:${CLIPROXYAPI_VERSION:-7.2.138}
     container_name: cliproxyapi
     restart: unless-stopped
     networks:
       - frontend
       - backend
     environment:
+      TZ: ${TZ:-Asia/Seoul}
       MANAGEMENT_PASSWORD: ${MANAGEMENT_API_KEY}
       DEPLOY: production
       CLIPROXY_TELEGRAM_BOT_TOKEN: ${CLIPROXY_TELEGRAM_BOT_TOKEN:-}
@@ -46,8 +54,8 @@ services:
       - "127.0.0.1:11451:11451"
     volumes:
       - ./config.local.yaml:/CLIProxyAPI/config.yaml
-      - cliproxyapi_auths:/root/.cli-proxy-api
-      - cliproxyapi_logs:/CLIProxyAPI/logs
+      - ./data/cliproxyapi:/root/.cli-proxy-api
+      - ./data/cliproxyapi-logs:/CLIProxyAPI/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -128,11 +136,21 @@ services:
       DATABASE_URL: postgresql://cliproxyapi:${POSTGRES_PASSWORD}@postgres:5432/cliproxyapi
       CLIPROXYAPI_MANAGEMENT_URL: http://cliproxyapi:8317/v0/management
       MANAGEMENT_API_KEY: ${MANAGEMENT_API_KEY}
+      COLLECTOR_API_KEY: ${COLLECTOR_API_KEY}
+      BACKUP_SCHEDULER_KEY: ${BACKUP_SCHEDULER_KEY}
       JWT_SECRET: ${JWT_SECRET}
       NODE_ENV: production
       DOCKER_HOST: tcp://docker-proxy:2375
       DASHBOARD_URL: http://localhost:3000
       API_URL: http://localhost:8317
+      # In local mode the host wrapper owns API upgrades. This prevents the
+      # dashboard's upstream docker-run updater from replacing the pinned
+      # Compose-managed CLIProxyAPI container.
+      LOCAL_STACK_MANAGED: "true"
+      # Official CLIProxyAPI v7.2.138 does not expose the Dashboard fork's
+      # optional auth-files/quota-groups extension.
+      CLIPROXYAPI_SUPPORTS_QUOTA_GROUPS: "false"
+      TZ: ${TZ:-Asia/Seoul}
       ALLOW_LOCAL_PROVIDER_URLS: ${ALLOW_LOCAL_PROVIDER_URLS:-false}
     volumes:
       - dashboard_backups:/app/backups
@@ -150,10 +168,65 @@ services:
       retries: 3
       start_period: 40s  # Allow time for DB init + Next.js startup
 
+  # Persist CLIProxyAPI's drain-on-read usage queue into PostgreSQL every five
+  # minutes so the dashboard's Usage page has historical data.
+  usage-collector:
+    image: alpine:3.19
+    container_name: cliproxyapi-usage-collector
+    restart: unless-stopped
+    networks:
+      - frontend
+      - backend
+    environment:
+      COLLECTOR_API_KEY: ${COLLECTOR_API_KEY}
+      TZ: ${TZ:-Asia/Seoul}
+    command: >
+      sh -c "
+        apk add --no-cache curl dcron &&
+        echo '*/5 * * * * curl -sf -X POST http://dashboard:3000/api/usage/collect -H \"Authorization: Bearer $$COLLECTOR_API_KEY\" > /dev/null 2>&1' > /tmp/crontab &&
+        crontab /tmp/crontab &&
+        crond -f -d 8
+      "
+    depends_on:
+      dashboard:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep crond > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Runs scheduled PostgreSQL/dashboard backups when enabled in the UI.
+  backup-scheduler:
+    image: alpine:3.19
+    container_name: cliproxyapi-backup-scheduler
+    restart: unless-stopped
+    networks:
+      - frontend
+      - backend
+    environment:
+      BACKUP_SCHEDULER_KEY: ${BACKUP_SCHEDULER_KEY}
+      TZ: ${TZ:-Asia/Seoul}
+    command: >
+      sh -c "
+        apk add --no-cache curl dcron &&
+        echo '*/5 * * * * curl -sf -X POST http://dashboard:3000/api/admin/backup/scheduled -H \"Authorization: Bearer $$BACKUP_SCHEDULER_KEY\" > /dev/null 2>&1' > /tmp/crontab &&
+        crontab /tmp/crontab &&
+        crond -f -d 8
+      "
+    depends_on:
+      dashboard:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep crond > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 volumes:
   postgres_data:
-  cliproxyapi_auths:
-  cliproxyapi_logs:
   dashboard_backups:
 
 networks:

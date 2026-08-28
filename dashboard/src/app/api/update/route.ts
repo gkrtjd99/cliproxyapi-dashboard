@@ -141,6 +141,12 @@ export async function POST(request: NextRequest) {
     return Errors.forbidden();
   }
 
+  if (process.env.LOCAL_STACK_MANAGED === "true") {
+    return Errors.conflict(
+      "CLIProxyAPI is managed by ./cliproxyapi-stack.sh update in local mode"
+    );
+  }
+
   const originError = validateOrigin(request);
   if (originError) return originError;
 

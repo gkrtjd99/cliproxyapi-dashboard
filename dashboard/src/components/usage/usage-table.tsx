@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useTranslations } from "next-intl";
+import { getCacheRate } from "@/lib/usage/token-metrics";
 
 interface KeyUsage {
   keyName: string;
@@ -20,6 +21,7 @@ interface KeyUsage {
     totalTokens: number;
     inputTokens: number;
     outputTokens: number;
+    cachedTokens: number;
   }>;
 }
 
@@ -44,7 +46,7 @@ export function UsageTable({ keys, isAdmin }: UsageTableProps) {
     <section className="space-y-2">
       <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("usageByApiKey")}</h2>
       <div className="overflow-x-auto">
-        <div className="min-w-[600px] rounded-md border border-[var(--surface-border)] bg-[var(--surface-base)]">
+        <div className="min-w-[800px] rounded-md border border-[var(--surface-border)] bg-[var(--surface-base)]">
           <table className="w-full text-sm">
           <thead className="sticky top-0 z-10 border-b border-[var(--surface-border)] bg-[var(--surface-base)]">
             <tr>
@@ -57,6 +59,8 @@ export function UsageTable({ keys, isAdmin }: UsageTableProps) {
               <th className="p-2 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("success")}</th>
               <th className="p-2 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("failed")}</th>
               <th className="p-2 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("tokens")}</th>
+              <th className="p-2 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("cachedInput")}</th>
+              <th className="p-2 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("cacheRate")}</th>
             </tr>
           </thead>
           <tbody>
@@ -113,11 +117,13 @@ export function UsageTable({ keys, isAdmin }: UsageTableProps) {
                     <td className="p-2 text-right text-xs text-[var(--text-secondary)]">{keyUsage.successCount.toLocaleString()}</td>
                     <td className="p-2 text-right text-xs text-[var(--text-secondary)]">{keyUsage.failureCount.toLocaleString()}</td>
                     <td className="p-2 text-right text-xs text-[var(--text-secondary)]">{keyUsage.totalTokens.toLocaleString()}</td>
+                    <td className="p-2 text-right text-xs text-[var(--text-secondary)]">{keyUsage.cachedTokens.toLocaleString()}</td>
+                    <td className="p-2 text-right text-xs text-[var(--text-secondary)]">{(getCacheRate(keyUsage.inputTokens, keyUsage.cachedTokens) * 100).toFixed(1)}%</td>
                   </tr>
 
                   {isExpanded && hasModels && (
                     <tr>
-                      <td colSpan={isAdmin ? 7 : 6} className="p-0 bg-[var(--surface-base)]">
+                      <td colSpan={isAdmin ? 9 : 8} className="p-0 bg-[var(--surface-base)]">
                         <div className="p-3 pl-8">
                           <table className="w-full text-xs">
                             <thead className="border-b border-[var(--surface-border)]">
@@ -125,6 +131,8 @@ export function UsageTable({ keys, isAdmin }: UsageTableProps) {
                                 <th className="p-2 text-left text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("model")}</th>
                                 <th className="p-2 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("requests")}</th>
                                 <th className="p-2 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("input")}</th>
+                                <th className="p-2 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("cachedInput")}</th>
+                                <th className="p-2 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("cacheRate")}</th>
                                 <th className="p-2 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("output")}</th>
                                 <th className="p-2 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("total")}</th>
                               </tr>
@@ -135,6 +143,8 @@ export function UsageTable({ keys, isAdmin }: UsageTableProps) {
                                   <td className="p-2 text-left font-mono text-[11px] text-[var(--text-secondary)]">{modelName}</td>
                                   <td className="p-2 text-right text-[var(--text-muted)]">{modelData.totalRequests.toLocaleString()}</td>
                                   <td className="p-2 text-right text-[var(--text-muted)]">{modelData.inputTokens.toLocaleString()}</td>
+                                  <td className="p-2 text-right text-[var(--text-muted)]">{modelData.cachedTokens.toLocaleString()}</td>
+                                  <td className="p-2 text-right text-[var(--text-muted)]">{(getCacheRate(modelData.inputTokens, modelData.cachedTokens) * 100).toFixed(1)}%</td>
                                   <td className="p-2 text-right text-[var(--text-muted)]">{modelData.outputTokens.toLocaleString()}</td>
                                   <td className="p-2 text-right text-[var(--text-muted)]">{modelData.totalTokens.toLocaleString()}</td>
                                 </tr>

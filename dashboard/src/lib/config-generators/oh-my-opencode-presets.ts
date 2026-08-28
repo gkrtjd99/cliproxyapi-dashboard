@@ -11,7 +11,7 @@ import {
   validateFullConfig,
 } from "./oh-my-opencode-types";
 
-const DEFAULT_PRESETS_REPO = process.env.GITHUB_REPO || "itsmylife44/cliproxyapi-dashboard";
+const DEFAULT_PRESETS_REPO = process.env.GITHUB_REPO || "gkrtjd99/cliproxyapi-dashboard";
 const DEFAULT_PRESETS_SOURCE_URL =
   process.env.OH_MY_OPENCODE_PRESETS_SOURCE_URL ||
   `https://raw.githubusercontent.com/${DEFAULT_PRESETS_REPO}/main/dashboard/src/lib/config-generators/oh-my-opencode-presets.json`;

@@ -94,6 +94,8 @@ function Ensure-EnvFile {
     $jwt = New-RandomBase64 32
     $mgmt = New-RandomHex 32
     $pg = New-RandomHex 32
+    $collector = New-RandomHex 32
+    $backupScheduler = New-RandomHex 32
 
     # Ask about Perplexity Pro Sidecar
     Write-Host ""
@@ -113,9 +115,14 @@ function Ensure-EnvFile {
     }
 
     $contentLines = @(
+        "# Pinned to the API release used by the copied local stack.",
+        "CLIPROXYAPI_VERSION=7.2.138",
+        "TZ=Asia/Seoul",
         "JWT_SECRET=$jwt",
         "MANAGEMENT_API_KEY=$mgmt",
-        "POSTGRES_PASSWORD=$pg"
+        "POSTGRES_PASSWORD=$pg",
+        "COLLECTOR_API_KEY=$collector",
+        "BACKUP_SCHEDULER_KEY=$backupScheduler"
     )
 
     if ($enablePerplexity) {
@@ -192,7 +199,9 @@ function Wait-ForHealth {
         "cliproxyapi-postgres",
         "cliproxyapi",
         "cliproxyapi-docker-proxy",
-        "cliproxyapi-dashboard"
+        "cliproxyapi-dashboard",
+        "cliproxyapi-usage-collector",
+        "cliproxyapi-backup-scheduler"
     )
 
     while ($true) {

@@ -10,6 +10,7 @@ const UsageStats = dynamic(
 );
 import { LiveLogs } from "@/components/monitoring/live-logs";
 import { API_ENDPOINTS } from "@/lib/api-endpoints";
+import { getUsageDateRange } from "@/lib/usage/date-range";
 import { useProxyStatusProvider } from "@/components/dashboard-shell";
 
 import { useTranslations } from "next-intl";
@@ -145,10 +146,38 @@ export default function MonitoringPage() {
     const fetchUsage = async () => {
       if (!shouldPollDashboard()) return;
       try {
-        const res = await fetch(API_ENDPOINTS.MANAGEMENT.USAGE);
+        const { from, to } = getUsageDateRange("7d");
+
+        // CLIProxyAPI v6.10+ removed the aggregated /usage endpoint. Reuse
+        // the persistent Dashboard history collected from /usage-queue.
+        const res = await fetch(`/api/usage/history?from=${from}&to=${to}`);
         if (res.ok) {
-          const data = await res.json();
-          setUsage(data);
+          const response = await res.json();
+          const history = response?.data;
+          const modelApis = Object.fromEntries(
+            (history?.modelBreakdown ?? []).map((entry: { model: string; requests: number; tokens: number }) => [
+              entry.model,
+              {
+                total_requests: entry.requests,
+                total_tokens: entry.tokens,
+                models: {
+                  [entry.model]: {
+                    total_requests: entry.requests,
+                    total_tokens: entry.tokens,
+                  },
+                },
+              },
+            ])
+          );
+          setUsage({
+            usage: {
+              total_requests: history?.totals?.totalRequests ?? 0,
+              success_count: history?.totals?.successCount ?? 0,
+              failure_count: history?.totals?.failureCount ?? 0,
+              total_tokens: history?.totals?.totalTokens ?? 0,
+              apis: modelApis,
+            },
+          });
         }
       } catch {}
     };
@@ -195,9 +224,11 @@ export default function MonitoringPage() {
     const fetchLogs = async () => {
       if (!shouldPollDashboard()) return;
       try {
-        const url = lastTimestampRef.current > 0
-          ? `${API_ENDPOINTS.MANAGEMENT.LOGS}?after=${lastTimestampRef.current}`
-          : API_ENDPOINTS.MANAGEMENT.LOGS;
+        const params = new URLSearchParams({ limit: "100" });
+        if (lastTimestampRef.current > 0) {
+          params.set("after", String(lastTimestampRef.current));
+        }
+        const url = `${API_ENDPOINTS.MANAGEMENT.LOGS}?${params.toString()}`;
 
         const res = await fetch(url);
         if (res.ok) {

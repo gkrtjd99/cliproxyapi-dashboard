@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { getCacheRate } from "@/lib/usage/token-metrics";
 
 interface RequestEvent {
   timestamp: string;
@@ -13,6 +14,7 @@ interface RequestEvent {
   totalTokens: number;
   inputTokens: number;
   outputTokens: number;
+  cachedTokens: number;
   failed: boolean;
 }
 
@@ -99,7 +101,7 @@ export function UsageRequestEvents({ events, isAdmin, truncated }: UsageRequestE
       </div>
 
       <div className="max-h-[clamp(320px,62vh,760px)] overflow-auto">
-        <table className="w-full min-w-[880px] text-sm">
+        <table className="w-full min-w-[1080px] text-sm">
           <thead>
             <tr className="sticky top-0 z-10 border-b border-[var(--surface-border)] bg-[var(--surface-base)]">
               <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("time")}</th>
@@ -111,6 +113,8 @@ export function UsageRequestEvents({ events, isAdmin, truncated }: UsageRequestE
               <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("status")}</th>
               <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("latency")}</th>
               <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("input")}</th>
+              <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("cachedInput")}</th>
+              <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("cacheRate")}</th>
               <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("output")}</th>
               <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("tokens")}</th>
             </tr>
@@ -149,6 +153,8 @@ export function UsageRequestEvents({ events, isAdmin, truncated }: UsageRequestE
                   </span>
                 </td>
                 <td className="px-3 py-2 text-right text-xs tabular-nums text-[var(--text-muted)]">{event.inputTokens.toLocaleString()}</td>
+                <td className="px-3 py-2 text-right text-xs tabular-nums text-[var(--text-muted)]">{event.cachedTokens.toLocaleString()}</td>
+                <td className="px-3 py-2 text-right text-xs tabular-nums text-[var(--text-muted)]">{(getCacheRate(event.inputTokens, event.cachedTokens) * 100).toFixed(1)}%</td>
                 <td className="px-3 py-2 text-right text-xs tabular-nums text-[var(--text-muted)]">{event.outputTokens.toLocaleString()}</td>
                 <td className="px-3 py-2 text-right text-xs tabular-nums text-[var(--text-primary)]">{event.totalTokens.toLocaleString()}</td>
               </tr>

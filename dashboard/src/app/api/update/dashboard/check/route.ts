@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { updateCheckCache, CACHE_TTL } from "@/lib/cache";
 
-const GITHUB_REPO = process.env.GITHUB_REPO || "itsmylife44/cliproxyapi-dashboard";
+const GITHUB_REPO = process.env.GITHUB_REPO || "gkrtjd99/cliproxyapi-dashboard";
 const DASHBOARD_VERSION = process.env.DASHBOARD_VERSION || "dev";
 
 interface RemoteVersionData {

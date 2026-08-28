@@ -9,9 +9,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/itsmylife44/cliproxyapi-dashboard/releases"><img src="https://img.shields.io/github/v/release/itsmylife44/cliproxyapi-dashboard" alt="Release"></a>
-  <a href="https://github.com/itsmylife44/cliproxyapi-dashboard/actions/workflows/release.yml"><img src="https://github.com/itsmylife44/cliproxyapi-dashboard/actions/workflows/release.yml/badge.svg" alt="Build"></a>
-  <a href="https://github.com/itsmylife44/cliproxyapi-dashboard/pkgs/container/cliproxyapi-dashboard%2Fdashboard"><img src="https://img.shields.io/badge/Docker-GHCR-blue?logo=docker" alt="Docker"></a>
+  <a href="https://github.com/gkrtjd99/cliproxyapi-dashboard/releases"><img src="https://img.shields.io/github/v/release/gkrtjd99/cliproxyapi-dashboard" alt="Release"></a>
+  <a href="https://github.com/gkrtjd99/cliproxyapi-dashboard/actions/workflows/release.yml"><img src="https://github.com/gkrtjd99/cliproxyapi-dashboard/actions/workflows/release.yml/badge.svg" alt="Build"></a>
+  <a href="https://github.com/gkrtjd99/cliproxyapi-dashboard/pkgs/container/cliproxyapi-dashboard%2Fdashboard"><img src="https://img.shields.io/badge/Docker-GHCR-blue?logo=docker" alt="Docker"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License: MIT"></a>
   <a href="https://discord.gg/7SrXxNueGA"><img src="https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16">
@@ -33,6 +33,8 @@
 
 ---
 
+> **Using the sanitized Desktop bundle?** Start with [README-LOCAL.md](README-LOCAL.md). It contains the Docker Desktop setup steps and explains which runtime files must stay private.
+
 ## What is this?
 
 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) wraps OAuth-based CLI tools (Claude Code, Gemini CLI, Codex, GitHub Copilot, Kiro, Antigravity, Kimi, Qwen) into **OpenAI-compatible APIs**. This dashboard gives you a web UI to manage everything — providers, API keys, configs, logs, and updates — without touching YAML files.
@@ -42,7 +44,7 @@
 > **Local use (macOS/Windows/Linux)**: Only Docker Desktop required.
 
 ```bash
-git clone https://github.com/itsmylife44/cliproxyapi-dashboard.git
+git clone https://github.com/gkrtjd99/cliproxyapi-dashboard.git
 cd cliproxyapi-dashboard
 ./setup-local.sh          # macOS/Linux
 # .\setup-local.ps1       # Windows
@@ -51,6 +53,63 @@ cd cliproxyapi-dashboard
 The local setup scripts start Docker Compose with a local dashboard build (`--build`) so your current source changes are used.
 
 Open **http://localhost:3000** → create admin account → done.
+
+### Local maintenance
+
+The local stack keeps CLIProxyAPI pinned to the version in `.env` and builds
+both CLIProxyAPI and Dashboard from the checked-out source. Use the wrapper for
+safe maintenance:
+
+```bash
+./cliproxyapi-stack.sh backup
+./cliproxyapi-stack.sh update
+./cliproxyapi-stack.sh update --api-version 7.2.138
+```
+
+`update` backs up the CLIProxyAPI state and PostgreSQL database, fast-forwards
+the Dashboard source when it does not overlap local changes, pulls upstream
+support images, rebuilds the local images, and runs health checks. It never
+deletes Docker volumes or OAuth data. Review the upstream release before
+changing `--api-version`.
+
+In local mode, the Dashboard's built-in CLIProxyAPI image updater is disabled
+because it targets the upstream `eceasy/cli-proxy-api` image directly. Use the
+wrapper above so the pinned local build and Compose ownership are preserved.
+
+For a normal start/stop cycle use `./cliproxyapi-stack.sh up` and
+`./cliproxyapi-stack.sh down`; do not use `down -v` unless you intentionally
+want to remove the Dashboard database.
+
+### Local configuration and API access
+
+The local setup script creates the runtime configuration automatically. Run
+`./setup-local.sh` (or `./setup-local.sh --prepare-only` to create files without
+starting the stack) to generate:
+
+- `.env` — fresh JWT, management, PostgreSQL, collector, and backup-scheduler secrets
+- `config.local.yaml` — the local proxy port, management secret, initial API key,
+  retry policy, quota switching, and routing defaults
+
+These files contain installation-specific secrets and are ignored by Git. Do
+not copy them into an issue, commit, or shared bundle.
+
+After connecting an OAuth account in the Dashboard, create an API key from the
+Dashboard's API key management page for client requests. The local
+OpenAI-compatible endpoint is `http://localhost:11451/v1`; port `8317` is the
+CLIProxyAPI management endpoint used by the Dashboard.
+
+### Local stack additions
+
+The local stack extends the upstream Compose setup with:
+
+- A source-built CLIProxyAPI image pinned by `CLIPROXYAPI_VERSION` (default `7.2.138`)
+- Bind-mounted OAuth/config state under `data/cliproxyapi` and logs under `data/cliproxyapi-logs`
+- A five-minute usage collector and scheduled PostgreSQL/dashboard backup service
+- A local-stack update guard so the Dashboard cannot replace the Compose-managed API image
+- An optional Perplexity sidecar, enabled with `COMPOSE_PROFILES=perplexity`
+
+See [README-LOCAL.md](README-LOCAL.md) for the complete local configuration,
+state migration, and troubleshooting notes.
 
 > **Server deployment**: See the full [Installation Guide](docs/INSTALLATION.md).
 
@@ -329,16 +388,16 @@ Add more by following the steps above!
 
 - **[Discord](https://discord.gg/7SrXxNueGA)** — Community chat, installation help, announcements
 - **[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)** — Core proxy documentation
-- **[Issues](https://github.com/itsmylife44/cliproxyapi-dashboard/issues)** — Bug reports and feature requests
-- **[Discussions](https://github.com/itsmylife44/cliproxyapi-dashboard/discussions)** — Questions and community
+- **[Issues](https://github.com/gkrtjd99/cliproxyapi-dashboard/issues)** — Bug reports and feature requests
+- **[Discussions](https://github.com/gkrtjd99/cliproxyapi-dashboard/discussions)** — Questions and community
 
 ## Star History
 
-<a href="https://star-history.com/#itsmylife44/cliproxyapi-dashboard&Date">
+<a href="https://star-history.com/#gkrtjd99/cliproxyapi-dashboard&Date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=itsmylife44/cliproxyapi-dashboard&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=itsmylife44/cliproxyapi-dashboard&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=itsmylife44/cliproxyapi-dashboard&type=Date" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=gkrtjd99/cliproxyapi-dashboard&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=gkrtjd99/cliproxyapi-dashboard&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=gkrtjd99/cliproxyapi-dashboard&type=Date" />
   </picture>
 </a>
 
